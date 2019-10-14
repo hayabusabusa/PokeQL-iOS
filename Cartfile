@@ -1,0 +1,14 @@
+# Graph QL
+github "apollographql/apollo-ios"
+
+# RxSwift
+github "ReactiveX/RxSwift" ~> 5.0
+
+# Kingfisher
+github "onevcat/Kingfisher"
+
+# Hero
+github "HeroTransitions/Hero"
+
+# SwifterSwift
+github "SwifterSwift/SwifterSwift"
