@@ -32,7 +32,7 @@ extension BaseNavigationController {
 
     func setupUI() {
         view.backgroundColor = .white
-        navigationBar.backgroundColor = .white
+        navigationBar.barTintColor = .white
         navigationBar.shadowImage = UIImage()
         navigationBar.tintColor = UIColor(hexString: "#ff7675")
         navigationBar.titleTextAttributes = [.font: UIFont.systemFont(ofSize: 16, weight: .bold),

@@ -17,14 +17,21 @@ final class MainViewController: BaseViewController {
     // MARK: Properties
     
     private var dataSource: UICollectionViewDiffableDataSource<MainSection, MainItem>!
+    private var viewModel: MainViewModel!
     
     // MARK: Lifecycle
+    
+    static func instance() -> MainViewController {
+        let vc = MainViewController.newInstance()
+        return vc
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
         configureNavigation()
         configureCollectionView()
         configureDataSource()
+        configureViewModel()
     }
     
     // MARK: IBAction
@@ -33,6 +40,22 @@ final class MainViewController: BaseViewController {
 // MARK: - Configure
 
 extension MainViewController {
+    
+    func configureViewModel() {
+        viewModel = MainViewModel(dependency: MainViewModel.Dependency(model: MainModelImpl()),
+                                  input: MainViewModel.Input())
+        viewModel.output.pokemonsDriver
+            .drive(onNext: { [weak self] pokemons in
+                guard let self = self else { return }
+                self.updateUI(pokemons: pokemons)
+            })
+            .disposed(by: disposeBag)
+        viewModel.output.errorDriver
+            .drive(onNext: { error in
+                
+            })
+            .disposed(by: disposeBag)
+    }
     
     func createLayout() -> UICollectionViewLayout {
         let layout = UICollectionViewCompositionalLayout { (sectionIndex, environment) -> NSCollectionLayoutSection? in
@@ -50,7 +73,7 @@ extension MainViewController {
     
     func configureNavigation() {
         navigationItem.title = "Main"
-        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .action, target: self, action: nil)
+        //navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .action, target: self, action: nil)
     }
     
     func configureCollectionView() {
@@ -67,30 +90,21 @@ extension MainViewController {
                 return cell
             }
         }
+    }
+}
+
+// MARK: - Update snapshot
+
+extension MainViewController {
+    
+    func updateUI(pokemons: [PokemonsQuery.Data.Pokemon]) {
+        // ここをViewではない層で変換してここに流してきたい。
+        let identifiers = pokemons.map { MainItem(itemType: .grid(model: $0)) }
         
-        // - Initial
-        PokeQLProvider.shared.apolloClient.fetch(query: PokemonsQuery(count: 40)) { [weak self] result in
-            guard let self = self else { return }
-            switch result {
-            case .success(let response):
-                if let pokemons = response.data?.pokemons {
-                    var array: [MainItem] = [MainItem]()
-                    pokemons.forEach { pokemon in
-                        if let pokemon = pokemon {
-                            array.append(MainItem(itemType: .grid(model: pokemon)))
-                        }
-                    }
-                    
-                    // - snapshot
-                    var snapshot = NSDiffableDataSourceSnapshot<MainSection, MainItem>()
-                    snapshot.appendSections([.grid])
-                    snapshot.appendItems(array, toSection: .grid)
-                    self.dataSource.apply(snapshot, animatingDifferences: true, completion: nil)
-                }
-            case .failure(let error):
-                print(error)
-            }
-        }
+        var snapshot = NSDiffableDataSourceSnapshot<MainSection, MainItem>()
+        snapshot.appendSections([.grid])
+        snapshot.appendItems(identifiers, toSection: .grid)
+        dataSource.apply(snapshot, animatingDifferences: true, completion: nil)
     }
 }
 
