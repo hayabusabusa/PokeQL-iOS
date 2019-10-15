@@ -25,7 +25,7 @@ final class MainViewModel: ViewModelType {
     
     // - Input
     struct Input {
-        
+        let refreshSignal: Signal<Void>
     }
     private let input: Input
     
@@ -47,11 +47,25 @@ final class MainViewModel: ViewModelType {
         self.output = Output(pokemonsDriver: pokemonsRelay.asDriver(),
                              errorDriver: errorRelay.asDriver(onErrorDriveWith: .empty()))
         
-        dependency.model.fetchPokemons(30)
+        dependency.model.fetchPokemons()
             .subscribe(onSuccess: { pokemons in
                 pokemonsRelay.accept(pokemons)
             }, onError: { error in
                 errorRelay.accept(error.localizedDescription)
+            })
+            .disposed(by: disposeBag)
+        
+        // - Input
+        self.input.refreshSignal
+            .emit(onNext: { [weak self] in
+                guard let self = self else { return }
+                self.dependency.model.fetchPokemons()
+                    .subscribe(onSuccess: { pokemons in
+                        pokemonsRelay.accept(pokemons)
+                    }, onError: { error in
+                        errorRelay.accept(error.localizedDescription)
+                    })
+                    .disposed(by: self.disposeBag)
             })
             .disposed(by: disposeBag)
     }

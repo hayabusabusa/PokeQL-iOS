@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import RxCocoa
 
 final class MainViewController: BaseViewController {
     
@@ -15,6 +16,9 @@ final class MainViewController: BaseViewController {
     @IBOutlet weak var collectionView: UICollectionView!
     
     // MARK: Properties
+    
+    private let refreshRelay: PublishRelay<Void> = .init()
+    private var isFetching: Bool = false // TODO: Refactor
     
     private var dataSource: UICollectionViewDiffableDataSource<MainSection, MainItem>!
     private var viewModel: MainViewModel!
@@ -41,22 +45,6 @@ final class MainViewController: BaseViewController {
 
 extension MainViewController {
     
-    func configureViewModel() {
-        viewModel = MainViewModel(dependency: MainViewModel.Dependency(model: MainModelImpl()),
-                                  input: MainViewModel.Input())
-        viewModel.output.pokemonsDriver
-            .drive(onNext: { [weak self] pokemons in
-                guard let self = self else { return }
-                self.updateUI(pokemons: pokemons)
-            })
-            .disposed(by: disposeBag)
-        viewModel.output.errorDriver
-            .drive(onNext: { error in
-                
-            })
-            .disposed(by: disposeBag)
-    }
-    
     func createLayout() -> UICollectionViewLayout {
         let layout = UICollectionViewCompositionalLayout { (sectionIndex, environment) -> NSCollectionLayoutSection? in
             let itemSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(0.35), heightDimension: .fractionalHeight(1))
@@ -73,10 +61,10 @@ extension MainViewController {
     
     func configureNavigation() {
         navigationItem.title = "Main"
-        //navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .action, target: self, action: nil)
     }
     
     func configureCollectionView() {
+        collectionView.delegate = self
         collectionView.register(MainGridCell.nib, forCellWithReuseIdentifier: MainGridCell.reuseIdentifier)
         collectionView.setCollectionViewLayout(createLayout(), animated: false)
     }
@@ -90,6 +78,23 @@ extension MainViewController {
                 return cell
             }
         }
+    }
+    
+    func configureViewModel() {
+        viewModel = MainViewModel(dependency: MainViewModel.Dependency(model: MainModelImpl()),
+                                  input: MainViewModel.Input(refreshSignal: refreshRelay.asSignal()))
+        viewModel.output.pokemonsDriver
+            .drive(onNext: { [weak self] pokemons in
+                guard let self = self else { return }
+                self.isFetching = false // TODO: Refactor
+                self.updateUI(pokemons: pokemons)
+            })
+            .disposed(by: disposeBag)
+        viewModel.output.errorDriver
+            .drive(onNext: { error in
+                print(error)
+            })
+            .disposed(by: disposeBag)
     }
 }
 
@@ -108,6 +113,14 @@ extension MainViewController {
     }
 }
 
-extension MainViewController: UICollectionViewDelegate {
+extension MainViewController: UICollectionViewDelegate, UIScrollViewDelegate {
     
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if collectionView.contentOffset.y + collectionView.frame.size.height > collectionView.contentSize.height &&
+            collectionView.isDragging &&
+            !isFetching {
+            isFetching = true
+            refreshRelay.accept(())
+        }
+    }
 }
